@@ -26,7 +26,11 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .login-copy { margin-top: 33px; }
 .login-copy .eyebrow { margin-bottom: 9px; }
 .login-copy h1 { margin: 0; font-family: Manrope, sans-serif; font-size: 30px; font-weight: 700; letter-spacing: -1.3px; }
-.login-copy h1 span { color: #548269; }
+.login-copy h1 > span { color: inherit; }
+.stocknestio-word { white-space: nowrap; }
+.stocknestio-stock { color: #172630; }
+.stocknestio-nest { color: #ff5a0c; }
+.stocknestio-io { color: #259e35; }
 .login-copy > p:last-child { margin: 9px 0 0; color: #868c82; font-size: 11px; line-height: 1.75; }
 .login-form { display: grid; gap: 15px; margin-top: 23px; }
 .google-sheet-step { display: grid; gap: 14px; margin-top: 23px; }
