@@ -41,6 +41,8 @@ If Google shows **Error 403: access_denied** saying the app has not completed ve
 
 The app uses the Google Sheets API through its local or hosted server. Google sign-in requests the `spreadsheets` scope to read and edit spreadsheets available to the authorizing account, plus basic OpenID profile information to show the signed-in user's name and picture; app requests target only the configured spreadsheet. The app does not share the workbook with another person. If the sheet is currently shared as "Anyone with the link", set **General access** to **Restricted** in Google Sheets to stop other link holders from reading it; OAuth does not change the sheet's existing sharing settings.
 
+For another person to use a workbook, first share that Google Sheet with the exact Google account they sign into and grant **Editor** access. If the app reports insufficient Google Sheets permissions, use **Reconnect Google access**; this ends and revokes the existing app session before requesting consent again. Choose the account that has access to the workbook and approve the Google Sheets permission. If Google does not show the consent prompt or access is still denied, remove StockNestio from that account's Google Account connections and reconnect. Being able to sign in to Google alone does not grant access to a workbook.
+
 Inventory, purchases, stock movements, payouts, and expenses are read from and written directly to Google Sheets. The app does not bundle a local workbook copy, save workbook data or OAuth tokens in browser storage, or provide offline mode. Only the selected sheet link is saved in this browser. OAuth tokens stay on the server; after one day, sign in again.
 
 ## What’s included

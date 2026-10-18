@@ -172,12 +172,32 @@
       resetLoginFlow();
       showLoginPage(true);
       updateConnectionUI(false);
+      if (get("google-dialog").open) get("google-dialog").close();
+      return true;
     } catch (error) {
       toast(`Could not log out: ${error.message}`);
+      return false;
     } finally {
       button.disabled = false;
     }
-    if (get("google-dialog").open) get("google-dialog").close();
+  }
+
+  async function reconnectGoogleAccess() {
+    const sheetId = spreadsheetIdFromInput(get("login-sheet-id").value);
+    if (/^[a-zA-Z0-9-_]+$/.test(sheetId)) {
+      googleSettings.sheetId = sheetId;
+      localStorage.setItem(GOOGLE_SETTINGS_KEY, JSON.stringify({ sheetId }));
+    }
+    const button = get("reauthorize-google-button");
+    button.disabled = true;
+    button.textContent = "Reconnecting…";
+    try {
+      if (!await endGoogleSession()) return;
+      startGoogleLogin();
+    } finally {
+      button.disabled = false;
+      button.textContent = "Reconnect Google access";
+    }
   }
 
   function openGoogleSettings() {
@@ -1729,7 +1749,7 @@
     get("login-error").classList.add("hidden");
     startGoogleLogin();
   });
-  get("reauthorize-google-button").addEventListener("click", startGoogleLogin);
+  get("reauthorize-google-button").addEventListener("click", reconnectGoogleAccess);
   get("google-sheet-form").addEventListener("submit", (event) => {
     event.preventDefault();
     connectGoogleSheet();
