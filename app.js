@@ -26,6 +26,24 @@
   } catch (error) {
     console.error("Saved Google connection settings could not be loaded.", error);
   }
+
+  function showSheetAccessError(message) {
+    const needsReauthorization = /insufficient authentication scopes|access_token_scope_insufficient/i.test(message);
+    get("sheet-link-error").textContent = needsReauthorization
+      ? "Google signed you in without the permission needed to read this sheet. Reconnect Google and approve spreadsheet access."
+      : message;
+    get("sheet-link-error").classList.remove("hidden");
+    get("reauthorize-google-button").classList.toggle("hidden", !needsReauthorization);
+  }
+
+  function showReauthorizationPrompt(message) {
+    const googleDialog = get("google-dialog");
+    if (googleDialog.open) googleDialog.close();
+    get("login-step-signin").classList.add("hidden");
+    get("google-sheet-form").classList.remove("hidden");
+    showLoginPage(true);
+    showSheetAccessError(message);
+  }
   let sessionExpiresAt = 0;
   let googleAccountEmail = "";
   let googleAccountName = "";
@@ -51,6 +69,7 @@
     .map(({ entry }) => entry);
   let inventoryFilter = "all";
   let inventoryPage = 1;
+  let movementPage = 1;
   let purchasePage = 1;
   let payoutPage = 1;
   let expensePage = 1;
@@ -128,6 +147,9 @@
     get("google-sheet-form").classList.add("hidden");
     get("login-error").classList.add("hidden");
     get("sheet-link-error").classList.add("hidden");
+    get("reauthorize-google-button").classList.add("hidden");
+    get("load-google-sheet-button").disabled = false;
+    get("load-google-sheet-button").textContent = "Open my sheet";
     get("login-google-button").disabled = false;
     get("login-google-button").innerHTML = '<span class="google-g login-google-g">G</span> Sign in with Google';
     get("login-sheet-id").value = googleSettings.sheetId;
@@ -315,6 +337,7 @@
       if (index < 7 || !valueAt(inventoryRows, index, 0)) return;
       const name = String(row[0]).trim();
       inventory.push({
+        _sheetRow: index + 1,
         name,
         category: String(row[1] || ""),
         subcategory: String(row[2] || ""),
@@ -328,7 +351,9 @@
     const purchaseFooterIndex = purchaseRows.findIndex((row) => /total logged purchases/i.test(String(row[0] || "")));
     const purchaseFooterRow = purchaseFooterIndex >= 0 ? purchaseFooterIndex + 1 : 0;
 
-    const purchases = purchaseRows.slice(7).filter((row) => row[2]).map((row) => ({
+    const purchases = purchaseRows.slice(7).map((row, index) => ({ row, sheetRow: index + 8 }))
+      .filter(({ row }) => row[2]).map(({ row, sheetRow }) => ({
+      _sheetRow: sheetRow,
       date: sheetDate(row[0]),
       category: String(row[1] || ""),
       item: String(row[2]).trim(),
@@ -340,7 +365,9 @@
       vendor: String(row[8] || ""),
       company: String(row[9] || "")
     }));
-    const movements = movementRows.slice(4).filter((row) => row[1]).map((row) => ({
+    const movements = movementRows.slice(4).map((row, index) => ({ row, sheetRow: index + 5 }))
+      .filter(({ row }) => row[1]).map(({ row, sheetRow }) => ({
+      _sheetRow: sheetRow,
       date: sheetDate(row[0]),
       item: String(row[1]).trim(),
       type: /out/i.test(String(row[2])) ? "out" : "in",
@@ -348,15 +375,19 @@
       staff: String(row[4] || ""),
       notes: String(row[5] || "")
     }));
-    const payouts = payoutRows.slice(7).filter((row) => row[1]).map((row) => ({
+    const payouts = payoutRows.slice(7).map((row, index) => ({ row, sheetRow: index + 8 }))
+      .filter(({ row }) => row[1]).map(({ row, sheetRow }) => ({
+      _sheetRow: sheetRow,
       date: sheetDate(row[0]),
       platform: String(row[1]),
       amount: asNumber(row[2]),
-      status: String(row[3] || "Recorded"),
+      status: String(row[3] || ""),
       reference: String(row[4] || ""),
       notes: String(row[5] || "")
     }));
-    const expenses = expenseRows.slice(7).filter((row) => row[1]).map((row) => ({
+    const expenses = expenseRows.slice(7).map((row, index) => ({ row, sheetRow: index + 8 }))
+      .filter(({ row }) => row[1]).map(({ row, sheetRow }) => ({
+      _sheetRow: sheetRow,
       date: sheetDate(row[0]),
       category: String(row[1]),
       beneficiary: String(row[2] || ""),
@@ -417,8 +448,11 @@
       toast("Google Sheet connected. Changes will sync to your workbook.");
     } catch (error) {
       if (sessionExpiresAt) {
-        get("sheet-link-error").textContent = error.message;
-        get("sheet-link-error").classList.remove("hidden");
+        if (/insufficient authentication scopes|access_token_scope_insufficient/i.test(error.message)) {
+          showReauthorizationPrompt(error.message);
+        } else {
+          showSheetAccessError(error.message);
+        }
       } else {
         updateLoginError(error.message);
       }
@@ -431,7 +465,8 @@
   async function syncSpreadsheetChanges(before, after) {
     const updates = [];
     const nextRows = { ...sheetRows, inventory: { ...sheetRows.inventory } };
-    const newPurchases = after.purchases.slice(before.purchases.length);
+    const rowAssignments = [];
+    const newPurchases = after.purchases.filter((entry) => !entry._sheetRow);
     if (newPurchases.length && nextRows.purchaseFooterRow) {
       const requiredRows = Math.max(0, nextRows.purchasesNext + newPurchases.length - nextRows.purchaseFooterRow);
       if (requiredRows) {
@@ -464,26 +499,64 @@
     }
     const newInventoryRows = [];
     after.inventory.forEach((item) => {
-      const previous = before.inventory.find((entry) => entry.name === item.name);
-      const row = nextRows.inventory[item.name];
+      const previous = before.inventory.find((entry) => entry._sheetRow === item._sheetRow && entry._sheetRow);
+      const row = item._sheetRow;
       if (!previous) {
-        newInventoryRows.push({ name: item.name, values: [item.name, item.category, item.subcategory, item.unit, item.stock, item.company || ""] });
-      } else if (row && Number(previous.stock) !== Number(item.stock)) {
-        updates.push({ range: `'Inventory Master'!F${row}`, values: [[Number(item.stock)]] });
+        newInventoryRows.push(item);
+      } else {
+        const previousValues = [previous.name, previous.category, previous.subcategory, previous.unit, Number(previous.stock), previous.company || ""];
+        const values = [item.name, item.category, item.subcategory, item.unit, Number(item.stock), item.company || ""];
+        if (JSON.stringify(previousValues) !== JSON.stringify(values)) {
+          updates.push({ range: `'Inventory Master'!B${row}:G${row}`, values: [values] });
+        }
       }
     });
     newInventoryRows.forEach((item) => {
-      updates.push({ range: `'Inventory Master'!B${nextRows.inventoryNext}:G${nextRows.inventoryNext}`, values: [item.values] });
-      nextRows.inventory[item.name] = nextRows.inventoryNext++;
+      const row = nextRows.inventoryNext++;
+      updates.push({ range: `'Inventory Master'!B${row}:G${row}`, values: [[item.name, item.category, item.subcategory, item.unit, Number(item.stock), item.company || ""]] });
+      rowAssignments.push([item, row]);
     });
-    newPurchases.forEach((entry) => {
-      const row = nextRows.purchasesNext++;
+    const updatedPurchases = after.purchases.filter((entry) => entry._sheetRow
+      && JSON.stringify(before.purchases.find((old) => old._sheetRow === entry._sheetRow)) !== JSON.stringify(entry));
+    [...updatedPurchases, ...newPurchases].forEach((entry) => {
+      const row = entry._sheetRow || nextRows.purchasesNext++;
+      if (!entry._sheetRow) rowAssignments.push([entry, row]);
       updates.push({ range: `'Purchases & Inward Log'!B${row}:K${row}`, values: [[
         dateSerial(entry.date), entry.category, entry.item, Number(entry.packets) || 0, Number(entry.cost), Number(entry.quantity),
         Number(entry.unitCost), entry.expiry || "", entry.vendor || "", entry.company || ""
       ]] });
     });
-    if (newPurchases.length && nextRows.purchaseFooterRow) {
+    const updateExistingRows = (collection, columns, valuesFor) => {
+      const beforeByRow = new Map(before[collection].filter((entry) => entry._sheetRow).map((entry) => [entry._sheetRow, entry]));
+      const newEntries = after[collection].filter((entry) => !entry._sheetRow);
+      after[collection].forEach((entry) => {
+        if (!entry._sheetRow) return;
+        const previous = beforeByRow.get(entry._sheetRow);
+        if (previous && JSON.stringify(valuesFor(previous)) !== JSON.stringify(valuesFor(entry))) {
+          updates.push({ range: `${collection === "movements" ? "'Stock Movement Log'" : collection === "payouts" ? "'Online Payouts Log'" : quoteSheetTitle(expenseSheetTitle)}!B${entry._sheetRow}:${columns}${entry._sheetRow}`, values: [valuesFor(entry)] });
+        }
+      });
+      newEntries.forEach((entry) => {
+        const rowKey = collection === "movements" ? "movementsNext" : collection === "payouts" ? "payoutsNext" : "expensesNext";
+        const row = nextRows[rowKey]++;
+        const title = collection === "movements" ? "'Stock Movement Log'" : collection === "payouts" ? "'Online Payouts Log'" : quoteSheetTitle(expenseSheetTitle);
+        updates.push({ range: `${title}!B${row}:${columns}${row}`, values: [valuesFor(entry)] });
+        rowAssignments.push([entry, row]);
+      });
+    };
+    updateExistingRows("movements", "G", (entry) => [
+      dateSerial(entry.date), entry.item, entry.type === "out" ? "Stock Out (-)" : "Stock In (+)", Number(entry.quantity),
+      entry.staff || "", entry.notes || ""
+    ]);
+    updateExistingRows("payouts", "G", (entry) => [
+      dateSerial(entry.date), entry.platform, Number(entry.amount), entry.status || "", entry.reference || "", entry.notes || ""
+    ]);
+    updateExistingRows("expenses", "I", (entry) => [
+      dateSerial(entry.date), entry.category, entry.beneficiary || "", entry.description || "", Number(entry.amount),
+      entry.mode || "", entry.status || "", entry.notes || ""
+    ]);
+    const purchaseChanges = newPurchases.length || updatedPurchases.length;
+    if (purchaseChanges && nextRows.purchaseFooterRow) {
       const totals = after.purchases.reduce((sum, entry) => ({
         packets: sum.packets + (Number(entry.packets) || 0),
         cost: sum.cost + (Number(entry.cost) || 0),
@@ -494,32 +567,17 @@
         values: [[totals.packets, totals.cost, totals.quantity, totals.quantity ? totals.cost / totals.quantity : 0]]
       });
     }
-    after.movements.slice(before.movements.length).forEach((entry) => {
-      const row = nextRows.movementsNext++;
-      updates.push({ range: `'Stock Movement Log'!B${row}:G${row}`, values: [[
-        dateSerial(entry.date), entry.item, entry.type === "out" ? "Stock Out (-)" : "Stock In (+)", Number(entry.quantity),
-        entry.staff || "", entry.notes || ""
-      ]] });
-    });
-    after.payouts.slice(before.payouts.length).forEach((entry) => {
-      const row = nextRows.payoutsNext++;
-      updates.push({ range: `'Online Payouts Log'!B${row}:G${row}`, values: [[
-        dateSerial(entry.date), entry.platform, Number(entry.amount), entry.status || "Credited", entry.reference || "", entry.notes || ""
-      ]] });
-    });
-    after.expenses.slice(before.expenses.length).forEach((entry) => {
-      const row = nextRows.expensesNext++;
-      updates.push({ range: `${quoteSheetTitle(expenseSheetTitle)}!B${row}:I${row}`, values: [[
-        dateSerial(entry.date), entry.category, entry.beneficiary || "", entry.description || "", Number(entry.amount),
-        entry.mode || "", entry.status || "Paid", entry.notes || ""
-      ]] });
-    });
     if (!updates.length) return;
     await sheetsRequest("/values:batchUpdate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ valueInputOption: "USER_ENTERED", data: updates })
     });
+    rowAssignments.forEach(([entry, row]) => {
+      entry._sheetRow = row;
+    });
+    nextRows.inventory = Object.fromEntries(after.inventory.filter((item) => item._sheetRow)
+      .map((item) => [item.name, item._sheetRow]));
     sheetRows = nextRows;
   }
 
@@ -534,6 +592,7 @@
   function render() {
     renderDashboard();
     renderInventory();
+    renderMovements();
     renderPurchases();
     renderPayoutLog();
     renderExpenseLog();
@@ -610,17 +669,35 @@
       const [label, status] = statusFor(item.stock);
       const icon = item.category === "Food" ? "✿" : "▤";
       return `<tr>
+        <td class="row-actions"><button class="row-action" data-edit-inventory="${item._sheetRow || ""}">Edit</button><button class="row-action" data-adjust="${escapeHtml(item.name)}">Adjust</button></td>
         <td><div class="item-cell"><span class="item-thumb ${item.category === "Packaging" ? "packaging" : ""}">${icon}</span><span class="item-name"><strong title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</strong><small>${escapeHtml(item.subcategory)}</small></span></div></td>
         <td><span class="category-pill ${item.category === "Packaging" ? "packaging" : ""}">${escapeHtml(item.category)}</span></td>
         <td>${escapeHtml(item.company || "—")}</td>
         <td class="stock-cell">${number(item.stock)}<small>${escapeHtml(item.unit)}</small></td>
         <td><span class="status-pill ${status}">${label}</span></td>
-        <td><button class="row-action" data-adjust="${escapeHtml(item.name)}">Adjust</button></td>
       </tr>`;
     }).join("");
     renderPagination("inventory-pagination", filtered.length, inventoryPage, (page) => {
       inventoryPage = page;
       renderInventory();
+    });
+  }
+
+  function renderMovements() {
+    const query = get("movement-search").value.trim().toLowerCase();
+    const matches = newestFirst(state.movements).filter((entry) =>
+      [entry.date, dateLabel(entry.date), entry.item, entry.type, entry.quantity, entry.staff, entry.notes]
+        .join(" ").toLowerCase().includes(query));
+    get("movement-result-count").textContent = `${number(matches.length)} ${matches.length === 1 ? "movement" : "movements"}`;
+    get("movement-empty").classList.toggle("hidden", matches.length > 0);
+    const pageCount = Math.max(1, Math.ceil(matches.length / tablePageSize));
+    movementPage = Math.min(movementPage, pageCount);
+    const start = (movementPage - 1) * tablePageSize;
+    get("movement-table").innerHTML = matches.slice(start, start + tablePageSize).map((entry) => `
+      <tr><td><button class="row-action" data-edit-movement="${entry._sheetRow || ""}">Edit</button></td><td>${dateLabel(entry.date)}</td><td>${escapeHtml(entry.item)}</td><td>${entry.type === "out" ? "Stock out" : "Stock in"}</td><td class="stock-cell">${number(entry.quantity)}</td><td>${escapeHtml(entry.staff || "—")}</td><td>${escapeHtml(entry.notes || "—")}</td></tr>`).join("");
+    renderPagination("movement-pagination", matches.length, movementPage, (page) => {
+      movementPage = page;
+      renderMovements();
     });
   }
 
@@ -641,7 +718,7 @@
     purchasePage = Math.min(purchasePage, pageCount);
     const start = (purchasePage - 1) * tablePageSize;
     get("purchase-table").innerHTML = matches.slice(start, start + tablePageSize).map((entry) => `
-      <tr><td>${dateLabel(entry.date)}</td><td><div class="item-name"><strong>${escapeHtml(entry.item)}</strong><small>${escapeHtml(entry.category)}</small></div></td><td>${escapeHtml(entry.vendor || "—")}</td><td class="stock-cell">${number(entry.quantity)}<small>units</small></td><td>${money(entry.unitCost)}</td><td class="stock-cell">${money(entry.cost)}</td></tr>`).join("");
+      <tr><td><button class="row-action" data-edit-purchase="${entry._sheetRow || ""}">Edit</button></td><td>${dateLabel(entry.date)}</td><td><div class="item-name"><strong>${escapeHtml(entry.item)}</strong><small>${escapeHtml(entry.category)}</small></div></td><td>${escapeHtml(entry.vendor || "—")}</td><td class="stock-cell">${number(entry.quantity)}<small>units</small></td><td>${money(entry.unitCost)}</td><td class="stock-cell">${money(entry.cost)}</td></tr>`).join("");
     renderPagination("purchase-pagination", matches.length, purchasePage, (page) => {
       purchasePage = page;
       renderPurchases();
@@ -666,7 +743,7 @@
     const start = (payoutPage - 1) * tablePageSize;
     get("payout-log-table").innerHTML = matches.slice(start, start + tablePageSize).map((entry) => {
       const isPending = /pending|awaiting/i.test(entry.status);
-      return `<tr><td>${dateLabel(entry.date)}</td><td>${escapeHtml(entry.platform || "—")}</td><td class="stock-cell">${money(entry.amount)}</td><td><span class="status-pill ${isPending ? "low" : ""}">${escapeHtml(entry.status || "Recorded")}</span></td><td>${escapeHtml(entry.reference || "—")}</td><td>${escapeHtml(entry.notes || "—")}</td></tr>`;
+      return `<tr><td><button class="row-action" data-edit-payout="${entry._sheetRow || ""}">Edit</button></td><td>${dateLabel(entry.date)}</td><td>${escapeHtml(entry.platform || "—")}</td><td class="stock-cell">${money(entry.amount)}</td><td><span class="status-pill ${isPending ? "low" : ""}">${escapeHtml(entry.status || "Recorded")}</span></td><td>${escapeHtml(entry.reference || "—")}</td><td>${escapeHtml(entry.notes || "—")}</td></tr>`;
     }).join("");
     renderPagination("payout-log-pagination", matches.length, payoutPage, (page) => {
       payoutPage = page;
@@ -692,7 +769,7 @@
     const start = (expensePage - 1) * tablePageSize;
     get("expense-log-table").innerHTML = matches.slice(start, start + tablePageSize).map((entry) => {
       const isPending = /pending|awaiting/i.test(entry.status);
-      return `<tr><td>${dateLabel(entry.date)}</td><td>${escapeHtml(entry.category || "—")}</td><td>${escapeHtml(entry.beneficiary || "—")}</td><td>${escapeHtml(entry.description || "—")}</td><td class="stock-cell">${money(entry.amount)}</td><td>${escapeHtml(entry.mode || "—")}</td><td><span class="status-pill ${isPending ? "low" : ""}">${escapeHtml(entry.status || "Recorded")}</span></td><td>${escapeHtml(entry.notes || "—")}</td></tr>`;
+      return `<tr><td><button class="row-action" data-edit-expense="${entry._sheetRow || ""}">Edit</button></td><td>${dateLabel(entry.date)}</td><td>${escapeHtml(entry.category || "—")}</td><td>${escapeHtml(entry.beneficiary || "—")}</td><td>${escapeHtml(entry.description || "—")}</td><td class="stock-cell">${money(entry.amount)}</td><td>${escapeHtml(entry.mode || "—")}</td><td><span class="status-pill ${isPending ? "low" : ""}">${escapeHtml(entry.status || "Recorded")}</span></td><td>${escapeHtml(entry.notes || "—")}</td></tr>`;
     }).join("");
     renderPagination("expense-log-pagination", matches.length, expensePage, (page) => {
       expensePage = page;
@@ -998,7 +1075,7 @@
   function showPage(page) {
     document.querySelectorAll(".page-view").forEach((view) => view.classList.toggle("active", view.id === `page-${page}`));
     document.querySelectorAll(".nav-link").forEach((link) => link.classList.toggle("active", link.dataset.page === page));
-    const labels = { dashboard: "Overview", inventory: "Inventory", purchases: "Purchases", payouts: "Online payouts", expenses: "Expenses", finance: "Profit & loss" };
+    const labels = { dashboard: "Overview", inventory: "Inventory", movements: "Stock movements", purchases: "Purchases", payouts: "Online payouts", expenses: "Expenses", finance: "Profit & loss" };
     get("breadcrumb-current").textContent = labels[page];
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -1012,7 +1089,7 @@
     return `<div class="form-field ${options.full ? "full" : ""}"><label for="field-${name}">${label}</label>${control}</div>`;
   };
 
-  function openForm({ eyebrow, title, submit, fields, onSubmit }) {
+  function openForm({ eyebrow, title, submit, fields, initialValues = {}, onSubmit }) {
     get("dialog-eyebrow").textContent = eyebrow;
     get("dialog-title").textContent = title;
     get("dialog-submit").textContent = submit;
@@ -1020,6 +1097,10 @@
     get("dialog-error").classList.add("hidden");
     const dialog = get("app-dialog");
     const form = get("dialog-form");
+    Object.entries(initialValues).forEach(([name, value]) => {
+      const control = form.elements.namedItem(name);
+      if (control) control.value = value ?? "";
+    });
     form.onsubmit = async (event) => {
       event.preventDefault();
       for (const searchableField of form.querySelectorAll("input[list]")) {
@@ -1064,6 +1145,231 @@
     if (firstInput) firstInput.focus();
   }
 
+  function editSelect(label, name, options, currentValue) {
+    const allOptions = [...new Set([...options, currentValue].filter(Boolean))]
+      .map((value) => [value, value]);
+    return field(label, name, "select", { options: allOptions, searchable: true, required: Boolean(currentValue) });
+  }
+
+  function editRow(collection, row) {
+    return state[collection].find((entry) => Number(entry._sheetRow) === Number(row));
+  }
+
+  function applyStockDeltas(deltas, date, notes) {
+    for (const [itemName, delta] of deltas) {
+      const item = state.inventory.find((candidate) => candidate.name === itemName);
+      if (!item) return `The inventory item "${itemName}" no longer exists.`;
+      if (Number(item.stock) + delta < 0) {
+        return `This change would take ${itemName} below zero stock. Reduce the quantity or record a stock-in first.`;
+      }
+    }
+    for (const [itemName, delta] of deltas) {
+      if (!delta) continue;
+      const item = state.inventory.find((candidate) => candidate.name === itemName);
+      item.stock = Number(item.stock) + delta;
+      state.movements.push({
+        date: date || today(), item: itemName, type: delta < 0 ? "out" : "in",
+        quantity: Math.abs(delta), staff: "Stockroom", notes
+      });
+      movementPage = 1;
+    }
+    return "";
+  }
+
+  function openEditRecord(collection, row) {
+    const entry = editRow(collection, row);
+    if (!entry) {
+      toast("This row is no longer available. Refresh the sheet and try again.");
+      return;
+    }
+
+    if (collection === "inventory") {
+      const initialValues = {
+        name: entry.name, category: entry.category, subcategory: entry.subcategory, unit: entry.unit,
+        stock: entry.stock, company: entry.company
+      };
+      openForm({
+        eyebrow: "KITCHEN CATALOG", title: "Edit inventory item", submit: "Save changes",
+        initialValues,
+        fields: field("Item name", "name", "text", { full: true })
+          + field("Category", "category", "text", { required: false })
+          + field("Sub-category", "subcategory", "text", { required: false })
+          + field("Purchase unit", "unit", "text")
+          + field("On-hand stock", "stock", "number", { min: 0, step: "1" })
+          + field("Brand / supplier", "company", "text", { required: false }),
+        onSubmit: (values) => {
+          const name = values.name.trim();
+          const stock = Number(values.stock);
+          if (!name || state.inventory.some((item) => item !== entry && item.name.toLowerCase() === name.toLowerCase())) return "Enter an item name that is not already in your catalog.";
+          if (!Number.isInteger(stock) || stock < 0) return "On-hand stock must be a whole number of zero or more.";
+          const oldName = entry.name;
+          const delta = stock - Number(entry.stock);
+          Object.assign(entry, {
+            name, category: values.category.trim(), subcategory: values.subcategory.trim(),
+            unit: values.unit.trim() || "Unit", stock, company: values.company.trim()
+          });
+          if (oldName !== name) {
+            state.purchases.forEach((purchase) => { if (purchase.item === oldName) purchase.item = name; });
+            state.movements.forEach((movement) => { if (movement.item === oldName) movement.item = name; });
+          }
+          if (delta) {
+            state.movements.push({
+              date: today(), item: name, type: delta < 0 ? "out" : "in",
+              quantity: Math.abs(delta), staff: "Stockroom", notes: "Inventory correction"
+            });
+            movementPage = 1;
+          }
+          return "";
+        }
+      });
+      return;
+    }
+
+    if (collection === "purchases") {
+      const itemNames = state.inventory.map((item) => item.name);
+      const initialValues = {
+        date: entry.date, category: entry.category, item: entry.item, packets: entry.packets,
+        cost: entry.cost, quantity: entry.quantity, unitCost: entry.unitCost,
+        expiry: entry.expiry, vendor: entry.vendor, company: entry.company
+      };
+      openForm({
+        eyebrow: "PURCHASES & INWARD", title: "Edit purchase", submit: "Save changes",
+        initialValues,
+        fields: field("Purchase date", "date", "date", { required: false })
+          + editSelect("Item", "item", itemNames, entry.item)
+          + field("Category", "category", "text", { required: false })
+          + field("Vendor", "vendor", "text", { required: false })
+          + field("Brand / supplier", "company", "text", { required: false })
+          + field("Units received", "quantity", "number", { min: 1, step: "1" })
+          + field("Number of packs", "packets", "number", { min: 0, step: "1", required: false })
+          + field("Unit cost (₹)", "unitCost", "number", { min: 0, step: "0.01" })
+          + field("Total cost (₹)", "cost", "number", { min: 0, step: "0.01" })
+          + field("Expiry / notes", "expiry", "text", { required: false, full: true }),
+        onSubmit: (values) => {
+          const quantity = Number(values.quantity);
+          const packets = Number(values.packets) || 0;
+          const cost = Number(values.cost);
+          const unitCost = Number(values.unitCost);
+          if (!Number.isInteger(quantity) || quantity <= 0 || !Number.isInteger(packets) || packets < 0
+            || !Number.isFinite(cost) || cost < 0 || !Number.isFinite(unitCost) || unitCost < 0) {
+            return "Enter whole-unit quantities and non-negative purchase costs.";
+          }
+          const deltas = new Map();
+          deltas.set(entry.item, (deltas.get(entry.item) || 0) - Number(entry.quantity));
+          deltas.set(values.item, (deltas.get(values.item) || 0) + quantity);
+          const correctionError = applyStockDeltas(deltas, today(), "Purchase edit correction");
+          if (correctionError) return correctionError;
+          state.financials.purchases += cost - Number(entry.cost);
+          Object.assign(entry, {
+            date: values.date, category: values.category.trim(), item: values.item, packets,
+            cost, quantity, unitCost, expiry: values.expiry.trim(), vendor: values.vendor.trim(),
+            company: values.company.trim()
+          });
+          return "";
+        }
+      });
+      return;
+    }
+
+    if (collection === "movements") {
+      const initialValues = { date: entry.date, item: entry.item, type: entry.type, quantity: entry.quantity, staff: entry.staff, notes: entry.notes };
+      openForm({
+        eyebrow: "STOCK MOVEMENT LOG", title: "Edit stock movement", submit: "Save changes",
+        initialValues,
+        fields: field("Date", "date", "date", { required: false })
+          + editSelect("Item", "item", state.inventory.map((item) => item.name), entry.item)
+          + field("Movement", "type", "select", { searchable: false, options: [["in", "Stock in (+)"], ["out", "Stock out (-)"]] })
+          + field("Quantity", "quantity", "number", { min: 1, step: "1" })
+          + field("Staff member", "staff", "text", { required: false })
+          + field("Reason / reference", "notes", "text", { required: false, full: true }),
+        onSubmit: (values) => {
+          const quantity = Number(values.quantity);
+          if (!Number.isInteger(quantity) || quantity <= 0) return "Quantity must be a whole number greater than zero.";
+          const oldDelta = entry.type === "out" ? -Number(entry.quantity) : Number(entry.quantity);
+          const newDelta = values.type === "out" ? -quantity : quantity;
+          const deltas = new Map();
+          deltas.set(entry.item, (deltas.get(entry.item) || 0) - oldDelta);
+          deltas.set(values.item, (deltas.get(values.item) || 0) + newDelta);
+          for (const [itemName, delta] of deltas) {
+            const item = state.inventory.find((candidate) => candidate.name === itemName);
+            if (!item) return `The inventory item "${itemName}" no longer exists.`;
+            if (Number(item.stock) + delta < 0) return `This change would take ${itemName} below zero stock.`;
+          }
+          deltas.forEach((delta, itemName) => {
+            const item = state.inventory.find((candidate) => candidate.name === itemName);
+            item.stock = Number(item.stock) + delta;
+          });
+          Object.assign(entry, {
+            date: values.date, item: values.item, type: values.type, quantity,
+            staff: values.staff.trim(), notes: values.notes.trim()
+          });
+          return "";
+        }
+      });
+      return;
+    }
+
+    if (collection === "payouts") {
+      const initialValues = {
+        date: entry.date, platform: entry.platform, amount: entry.amount,
+        status: entry.status, reference: entry.reference, notes: entry.notes
+      };
+      openForm({
+        eyebrow: "REVENUE", title: "Edit platform settlement", submit: "Save changes",
+        initialValues,
+        fields: field("Date", "date", "date", { required: false })
+          + editSelect("Platform", "platform", ["Swiggy", "Zomato", "Magicpin", "Ownly"], entry.platform)
+          + field("Amount (₹)", "amount", "number", { min: 0, step: "0.01" })
+          + editSelect("Status", "status", ["Credited", "Processing", "Pending"], entry.status)
+          + field("UTR / reference ID", "reference", "text", { required: false })
+          + field("Notes", "notes", "text", { required: false, full: true }),
+        onSubmit: (values) => {
+          const amount = Number(values.amount);
+          if (!Number.isFinite(amount) || amount < 0) return "Enter a non-negative settlement amount.";
+          state.financials.platforms[entry.platform] = Number(state.financials.platforms[entry.platform] || 0) - Number(entry.amount);
+          state.financials.platforms[values.platform] = Number(state.financials.platforms[values.platform] || 0) + amount;
+          state.financials.revenue += amount - Number(entry.amount);
+          Object.assign(entry, {
+            date: values.date, platform: values.platform, amount, status: values.status,
+            reference: values.reference.trim(), notes: values.notes.trim()
+          });
+          return "";
+        }
+      });
+      return;
+    }
+
+    if (collection === "expenses") {
+      const initialValues = {
+        date: entry.date, category: entry.category, beneficiary: entry.beneficiary,
+        description: entry.description, amount: entry.amount, mode: entry.mode,
+        status: entry.status, notes: entry.notes
+      };
+      openForm({
+        eyebrow: "EMPLOYEE & OPERATING EXPENSES", title: "Edit expense", submit: "Save changes",
+        initialValues,
+        fields: field("Date", "date", "date", { required: false })
+          + editSelect("Expense category", "category", ["Staff Wages", "Utilities", "Rent", "Kitchen Supplies", "Maintenance", "Packaging", "Marketing & Misc", "Delivery Charges", "Account Maintain Charges"], entry.category)
+          + field("Paid to / beneficiary", "beneficiary", "text", { required: false })
+          + field("Description / purpose", "description", "text", { required: false })
+          + field("Amount (₹)", "amount", "number", { min: 0, step: "0.01" })
+          + editSelect("Payment mode", "mode", ["UPI", "Bank Transfer", "Cash", "Card"], entry.mode)
+          + editSelect("Payment status", "status", ["Paid", "Pending", "Scheduled", "Cancelled"], entry.status)
+          + field("Reference / notes", "notes", "text", { required: false, full: true }),
+        onSubmit: (values) => {
+          const amount = Number(values.amount);
+          if (!Number.isFinite(amount) || amount < 0) return "Enter a non-negative expense amount.";
+          Object.assign(entry, {
+            date: values.date, category: values.category, beneficiary: values.beneficiary.trim(),
+            description: values.description.trim(), amount, mode: values.mode, status: values.status,
+            notes: values.notes.trim()
+          });
+          return "";
+        }
+      });
+    }
+  }
+
   function openPurchase() {
     const items = [...state.inventory].sort((a, b) => a.name.localeCompare(b.name));
     const itemOptions = items.map((item) => [item.name, `${item.name} (${item.unit})`]);
@@ -1074,7 +1380,7 @@
     openForm({
       eyebrow: "PURCHASES & INWARD", title: "Record a purchase", submit: "Add purchase",
       fields: field("Item", "item", "select", { options: itemOptions, full: true, searchable: true })
-        + field("Purchase date", "date", "date")
+        + field("Purchase date", "date", "date", { required: false })
         + field("Vendor", "vendor", "text", { placeholder: "Vendor or store" })
         + field("Units received", "quantity", "number", { min: 1, step: "1" })
         + field("Number of packs", "packets", "number", { min: 0, step: "1", required: false })
@@ -1258,8 +1564,12 @@
       toast("Latest workbook data loaded.");
     } catch (error) {
       if (sessionExpiresAt) {
-        openGoogleSettings();
-        showGoogleError(error.message);
+        if (/insufficient authentication scopes|access_token_scope_insufficient/i.test(error.message)) {
+          showReauthorizationPrompt(error.message);
+        } else {
+          openGoogleSettings();
+          showGoogleError(error.message);
+        }
       } else {
         updateLoginError(error.message);
       }
@@ -1296,10 +1606,7 @@
             updateLoginError(error.message);
             return;
           }
-          get("login-step-signin").classList.add("hidden");
-          get("google-sheet-form").classList.remove("hidden");
-          get("sheet-link-error").textContent = error.message;
-          get("sheet-link-error").classList.remove("hidden");
+          showReauthorizationPrompt(error.message);
         }
         return;
       }
@@ -1332,6 +1639,10 @@
     purchasePage = 1;
     renderPurchases();
   });
+  get("movement-search").addEventListener("input", () => {
+    movementPage = 1;
+    renderMovements();
+  });
   get("payout-search").addEventListener("input", () => {
     payoutPage = 1;
     renderPayoutLog();
@@ -1343,8 +1654,29 @@
   get("download-inventory").addEventListener("click", downloadInventoryExcel);
   get("download-purchases").addEventListener("click", downloadPurchasesExcel);
   get("inventory-table").addEventListener("click", (event) => {
-    const button = event.target.closest("[data-adjust]");
-    if (button) openAdjustment(button.dataset.adjust);
+    const editButton = event.target.closest("[data-edit-inventory]");
+    if (editButton) {
+      openEditRecord("inventory", editButton.dataset.editInventory);
+      return;
+    }
+    const adjustButton = event.target.closest("[data-adjust]");
+    if (adjustButton) openAdjustment(adjustButton.dataset.adjust);
+  });
+  get("movement-table").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-edit-movement]");
+    if (button) openEditRecord("movements", button.dataset.editMovement);
+  });
+  get("purchase-table").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-edit-purchase]");
+    if (button) openEditRecord("purchases", button.dataset.editPurchase);
+  });
+  get("payout-log-table").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-edit-payout]");
+    if (button) openEditRecord("payouts", button.dataset.editPayout);
+  });
+  get("expense-log-table").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-edit-expense]");
+    if (button) openEditRecord("expenses", button.dataset.editExpense);
   });
   get("quick-add").addEventListener("click", openPurchase);
   get("theme-toggle").addEventListener("click", () => {
@@ -1354,6 +1686,7 @@
   });
   get("add-item-button").addEventListener("click", openNewItem);
   get("adjust-stock-button").addEventListener("click", () => openAdjustment());
+  document.querySelectorAll("[data-open-adjustment]").forEach((button) => button.addEventListener("click", () => openAdjustment()));
   get("add-payout-button").addEventListener("click", openPayout);
   get("add-expense-button").addEventListener("click", openExpense);
   get("export-payout-report").addEventListener("click", downloadPayoutReport);
@@ -1368,6 +1701,7 @@
     get("login-error").classList.add("hidden");
     startGoogleLogin();
   });
+  get("reauthorize-google-button").addEventListener("click", startGoogleLogin);
   get("google-sheet-form").addEventListener("submit", (event) => {
     event.preventDefault();
     connectGoogleSheet();
@@ -1420,7 +1754,11 @@
     } catch (error) {
       googleSettings = { ...googleSettings, sheetId: previousSheetId };
       state = previousState;
-      showGoogleError(error.message);
+      if (/insufficient authentication scopes|access_token_scope_insufficient/i.test(error.message)) {
+        showReauthorizationPrompt(error.message);
+      } else {
+        showGoogleError(error.message);
+      }
     } finally {
       button.disabled = false;
       button.textContent = "Save sheet link";

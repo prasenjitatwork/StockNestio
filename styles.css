@@ -196,6 +196,7 @@ tbody tr:last-child td { border-bottom: 0; }
 .status-pill.empty { background: #fcebea; color: #af5b56; }
 .row-action { padding: 6px 8px; border: 1px solid #ecece6; border-radius: 6px; background: #fff; color: #6a7266; font-size: 9px; }
 .row-action:hover { border-color: #bbd0c2; color: #315e4c; }
+.row-actions { display: flex; gap: 5px; }
 .inventory-note { display: flex; align-items: center; gap: 7px; padding: 13px 2px; color: #969b92; font-size: 9px; }
 .inventory-note span { color: #a48a46; }
 .empty-state { padding: 36px 15px; color: #969b92; text-align: center; font-size: 11px; }

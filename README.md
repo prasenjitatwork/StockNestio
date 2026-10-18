@@ -41,15 +41,16 @@ Inventory, purchases, stock movements, payouts, and expenses are read from and w
 
 ## What’s included
 
-- Searchable inventory with low-stock and out-of-stock indicators, 10-row pagination, and interactive Excel export of all matching items.
+- Searchable inventory with low-stock and out-of-stock indicators, 10-row pagination, and interactive Excel export of all matching items. Edit inventory items, including their category, unit, supplier, and on-hand stock.
 - Add inventory items with category-specific sub-category choices or create a new sub-category.
 - Stock adjustments that prevent stock from going below zero.
-- Purchase entry that updates stock, purchase totals, and movement history together.
-- Paginated purchase history with search and interactive Excel export of all matching purchases.
+- Purchase entry that updates stock, purchase totals, and movement history together. Edit purchase records and automatically reconcile stock and purchase totals.
+- Paginated purchase history with search and interactive Excel export of all matching purchases; edit purchase details from the log.
+- Searchable, paginated stock movement history with editable movement records that recalculate on-hand stock.
 - Current date displayed in the app's top bar, including on mobile.
 - Google account name, email, and profile photo in the signed-in user profile.
 - Download the connected Google Sheet as an Excel workbook (`.xlsx`) with all tabs and formatting.
-- Dedicated, searchable, paginated platform payout and employee/operating expense logs. Their entry forms capture the workbook's reference, notes, payment mode, and status fields and save directly to the matching Google Sheets tabs.
+- Dedicated, searchable, paginated platform payout and employee/operating expense logs. Their entry forms capture the workbook's reference, notes, payment mode, and status fields, and their records can be edited and saved directly to the matching Google Sheets tabs.
 - Platform payout and operating expense totals, with a live profit-and-loss summary.
 - Monthly Payouts Summary matching the workbook's platform credits, purchase costs, operating expenses, total expenses, net profit/loss, and margin, with CSV export.
 - Use Google Sheets' **File → Make a copy** or **Download** options to back up workbook data.

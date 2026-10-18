@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=stocknestio-rebrand">
+  <link rel="stylesheet" href="styles.css?v=stocknestio-editable-records">
 </head>
 <body>
   <section class="login-page" id="google-login-page">
@@ -29,6 +29,7 @@
         <div class="signed-in-notice"><span class="note-dot"></span><span>Google account authorized <strong id="google-account-label"></strong></span></div>
         <div class="form-field"><label for="login-sheet-id">Google Sheet link or ID</label><input id="login-sheet-id" name="sheetId" type="text" autocomplete="url" placeholder="Paste your Google Sheet link" required><small class="field-help">Use the account that can edit this sheet.</small></div>
         <div id="sheet-link-error" class="form-error hidden" role="alert"></div>
+        <button class="button button-secondary login-submit hidden" type="button" id="reauthorize-google-button">Reconnect Google access</button>
         <button class="button button-primary login-submit" type="submit" id="load-google-sheet-button">Open my sheet</button>
       </form>
     </div>
@@ -43,6 +44,7 @@
       <nav class="primary-nav" aria-label="Main navigation">
         <button class="nav-link active" data-page="dashboard"><span class="nav-icon">◫</span>Overview</button>
         <button class="nav-link" data-page="inventory"><span class="nav-icon">▦</span>Inventory<span id="nav-low-count" class="nav-count"></span></button>
+        <button class="nav-link" data-page="movements"><span class="nav-icon">↕</span>Stock movements</button>
         <button class="nav-link" data-page="purchases"><span class="nav-icon">↙</span>Purchases</button>
         <button class="nav-link" data-page="payouts"><span class="nav-icon">↗</span>Online payouts</button>
         <button class="nav-link" data-page="expenses"><span class="nav-icon">−</span>Expenses</button>
@@ -90,7 +92,7 @@
             <div id="low-stock-list" class="low-stock-list"></div>
           </article>
           <article class="panel activity-panel">
-            <div class="panel-heading"><div><p class="eyebrow">LATEST MOVEMENT</p><h2>Stock activity</h2></div><button class="text-button" data-open-page="inventory">View log →</button></div>
+            <div class="panel-heading"><div><p class="eyebrow">LATEST MOVEMENT</p><h2>Stock activity</h2></div><button class="text-button" data-open-page="movements">View log →</button></div>
             <div id="recent-activity" class="activity-list"></div>
           </article>
           <article class="panel purchase-panel">
@@ -109,11 +111,21 @@
         </div>
         <div class="panel inventory-panel">
           <div class="table-heading"><div><strong id="inventory-result-count">All items</strong><span class="panel-caption">Stock levels reflect your latest workbook and changes.</span></div><div class="table-heading-actions"><button class="button button-secondary button-small" id="download-inventory">Download Excel</button><button id="adjust-stock-button" class="button button-secondary button-small">↕ Adjust stock</button></div></div>
-          <div class="table-scroll"><table><thead><tr><th>ITEM</th><th>CATEGORY</th><th>BRAND / SUPPLIER</th><th>ON HAND</th><th>STATUS</th><th></th></tr></thead><tbody id="inventory-table"></tbody></table></div>
+          <div class="table-scroll"><table><thead><tr><th>ACTIONS</th><th>ITEM</th><th>CATEGORY</th><th>BRAND / SUPPLIER</th><th>ON HAND</th><th>STATUS</th></tr></thead><tbody id="inventory-table"></tbody></table></div>
           <div id="inventory-empty" class="empty-state hidden">No items match that search.</div>
           <div class="table-pagination" id="inventory-pagination" aria-label="Inventory pages"></div>
         </div>
         <div class="inventory-note"><span>✦</span><span>“Low stock” means 2 units or fewer. Adjust this threshold mentally for each item's purchase unit.</span></div>
+      </section>
+
+      <section class="page-view" id="page-movements">
+        <div class="page-heading compact-heading"><div><p class="eyebrow">STOCK MOVEMENT LOG</p><h1>Stock movements</h1><p class="page-subtitle">Review and edit stock-in and stock-out records.</p></div><button class="button button-primary" data-open-adjustment>↕ Adjust stock</button></div>
+        <div class="inventory-toolbar"><div class="search-box"><span>⌕</span><input id="movement-search" type="search" placeholder="Search movements..." aria-label="Search stock movements"></div><span id="movement-result-count" class="panel-caption"></span></div>
+        <div class="panel inventory-panel">
+          <div class="table-scroll"><table><thead><tr><th>ACTION</th><th>DATE</th><th>ITEM</th><th>MOVEMENT</th><th>QUANTITY</th><th>STAFF</th><th>REASON / REFERENCE</th></tr></thead><tbody id="movement-table"></tbody></table></div>
+          <div id="movement-empty" class="empty-state hidden">No stock movements match your search.</div>
+          <div class="table-pagination" id="movement-pagination" aria-label="Stock movement pages"></div>
+        </div>
       </section>
 
       <section class="page-view" id="page-purchases">
@@ -125,7 +137,7 @@
         </div>
         <div class="panel inventory-panel">
           <div class="table-heading"><div><strong>Purchase history</strong><span class="panel-caption">A line-by-line view of your workbook's inward log.</span></div><div class="table-heading-actions"><div class="search-box search-box-small"><span>⌕</span><input id="purchase-search" type="search" placeholder="Search purchases..." aria-label="Search purchases"></div><button class="button button-secondary button-small" id="download-purchases">Download Excel</button></div></div>
-          <div class="table-scroll"><table><thead><tr><th>DATE</th><th>ITEM</th><th>VENDOR</th><th>QUANTITY</th><th>UNIT COST</th><th>TOTAL</th></tr></thead><tbody id="purchase-table"></tbody></table></div>
+          <div class="table-scroll"><table><thead><tr><th>ACTION</th><th>DATE</th><th>ITEM</th><th>VENDOR</th><th>QUANTITY</th><th>UNIT COST</th><th>TOTAL</th></tr></thead><tbody id="purchase-table"></tbody></table></div>
           <div id="purchase-empty" class="empty-state hidden">No purchases match that search.</div>
           <div class="table-pagination" id="purchase-pagination" aria-label="Purchase pages"></div>
         </div>
@@ -176,7 +188,7 @@
         </div>
         <div class="panel inventory-panel">
           <div class="table-heading"><div><strong id="payout-log-result-count">Payout history</strong><span class="panel-caption">Entries are saved to the workbook's Online Payouts Log tab.</span></div><div class="table-heading-actions"><div class="search-box search-box-small"><span>⌕</span><input id="payout-search" type="search" placeholder="Search payouts..." aria-label="Search payouts"></div></div></div>
-          <div class="table-scroll"><table><thead><tr><th>DATE</th><th>COMPANY / PLATFORM</th><th>CREDIT (₹)</th><th>SETTLEMENT STATUS</th><th>UTR / REFERENCE ID</th><th>NOTES</th></tr></thead><tbody id="payout-log-table"></tbody></table></div>
+          <div class="table-scroll"><table><thead><tr><th>ACTION</th><th>DATE</th><th>COMPANY / PLATFORM</th><th>CREDIT (₹)</th><th>SETTLEMENT STATUS</th><th>UTR / REFERENCE ID</th><th>NOTES</th></tr></thead><tbody id="payout-log-table"></tbody></table></div>
           <div id="payout-log-empty" class="empty-state hidden">No payout entries match your search. Add a settlement to get started.</div>
           <div class="table-pagination" id="payout-log-pagination" aria-label="Payout log pages"></div>
         </div>
@@ -191,7 +203,7 @@
         </div>
         <div class="panel inventory-panel">
           <div class="table-heading"><div><strong id="expense-log-result-count">Expense history</strong><span class="panel-caption">Entries are saved to the workbook's Employee payment and other expe tab.</span></div><div class="table-heading-actions"><div class="search-box search-box-small"><span>⌕</span><input id="expense-search" type="search" placeholder="Search expenses..." aria-label="Search expenses"></div></div></div>
-          <div class="table-scroll"><table><thead><tr><th>DATE</th><th>EXPENSE CATEGORY</th><th>PAID TO / BENEFICIARY</th><th>DESCRIPTION / PURPOSE</th><th>AMOUNT (₹)</th><th>PAYMENT MODE</th><th>PAYMENT STATUS</th><th>REFERENCE / NOTES</th></tr></thead><tbody id="expense-log-table"></tbody></table></div>
+          <div class="table-scroll"><table><thead><tr><th>ACTION</th><th>DATE</th><th>EXPENSE CATEGORY</th><th>PAID TO / BENEFICIARY</th><th>DESCRIPTION / PURPOSE</th><th>AMOUNT (₹)</th><th>PAYMENT MODE</th><th>PAYMENT STATUS</th><th>REFERENCE / NOTES</th></tr></thead><tbody id="expense-log-table"></tbody></table></div>
           <div id="expense-log-empty" class="empty-state hidden">No expense entries match your search. Add an expense to get started.</div>
           <div class="table-pagination" id="expense-log-pagination" aria-label="Expense log pages"></div>
         </div>
@@ -202,6 +214,6 @@
   <dialog id="app-dialog" class="app-dialog"><div class="dialog-shell"><div class="dialog-heading"><div><p class="eyebrow" id="dialog-eyebrow"></p><h2 id="dialog-title"></h2></div><button class="icon-button" id="dialog-close" aria-label="Close dialog">×</button></div><form id="dialog-form"><div id="dialog-fields" class="form-grid"></div><div id="dialog-error" class="form-error hidden"></div><div class="dialog-actions"><button type="button" class="button button-secondary" id="dialog-cancel">Cancel</button><button type="submit" class="button button-primary" id="dialog-submit">Save</button></div></form></div></dialog>
   <dialog id="google-dialog" class="app-dialog google-dialog"><div class="dialog-shell"><div class="dialog-heading"><div><p class="eyebrow">PRIVATE GOOGLE CONNECTION</p><h2>Connect your sheet</h2></div><button class="icon-button" id="google-dialog-close" aria-label="Close dialog">×</button></div><p class="google-intro">Update the Google Sheet used by this stockroom.</p><div class="google-access-note"><span>ⓘ</span><span>OAuth tokens remain on the local server and are not sent to the browser. Workbook data is loaded from and saved directly to Google Sheets.</span></div><form id="google-settings-form" class="google-settings"><div class="form-field"><label for="google-sheet-id">Google Sheet link or ID</label><input id="google-sheet-id" name="sheetId" type="text" required></div><a class="button button-secondary google-download" id="download-google-sheet" href="https://docs.google.com/spreadsheets/d/1u8NiibBqrxEmq9dUB7R7kJMqNVE5lYOYV2bhLb8tRYc/export?format=xlsx" target="_blank" rel="noopener noreferrer">↓ Download workbook (.xlsx)</a><p class="google-download-note">Downloads the full workbook, including its tabs and formatting. Google may ask you to sign in.</p><div class="google-setup-help">If you want a private sheet, set its Google Sheets general access to <strong>Restricted</strong>.</div><button class="button button-secondary google-save" type="submit">Save sheet link</button></form><div id="google-login-error" class="form-error hidden" role="alert"></div><div class="dialog-actions google-actions"><button type="button" class="button button-secondary" id="google-cancel">Cancel</button><button type="button" class="button button-primary" id="google-sign-in">Sign in with another account</button></div></div></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=stocknestio-rebrand"></script>
+  <script src="app.js?v=stocknestio-editable-records"></script>
 </body>
 </html>
