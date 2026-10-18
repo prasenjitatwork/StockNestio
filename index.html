@@ -5,12 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f8f7f3">
   <title>StockNestio | Inventory Management</title>
+  <link rel="manifest" href="/manifest.json">
   <link rel="icon" href="favicon.ico" sizes="any">
   <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=stocknestio-calculated-fields-v5">
+  <link rel="stylesheet" href="styles.css?v=stocknestio-android-v1">
 </head>
 <body>
   <section class="login-page" id="google-login-page">
@@ -214,6 +215,6 @@
   <dialog id="app-dialog" class="app-dialog"><div class="dialog-shell"><div class="dialog-heading"><div><p class="eyebrow" id="dialog-eyebrow"></p><h2 id="dialog-title"></h2></div><button class="icon-button" id="dialog-close" aria-label="Close dialog">×</button></div><form id="dialog-form"><div id="dialog-fields" class="form-grid"></div><div id="dialog-error" class="form-error hidden"></div><div class="dialog-actions"><button type="button" class="button button-secondary" id="dialog-cancel">Cancel</button><button type="submit" class="button button-primary" id="dialog-submit">Save</button></div></form></div></dialog>
   <dialog id="google-dialog" class="app-dialog google-dialog"><div class="dialog-shell"><div class="dialog-heading"><div><p class="eyebrow">PRIVATE GOOGLE CONNECTION</p><h2>Connect your sheet</h2></div><button class="icon-button" id="google-dialog-close" aria-label="Close dialog">×</button></div><p class="google-intro">Update the Google Sheet used by this stockroom.</p><div class="google-access-note"><span>ⓘ</span><span>OAuth tokens remain on the local server and are not sent to the browser. Workbook data is loaded from and saved directly to Google Sheets.</span></div><form id="google-settings-form" class="google-settings"><div class="form-field"><label for="google-sheet-id">Google Sheet link or ID</label><input id="google-sheet-id" name="sheetId" type="text" required></div><a class="button button-secondary google-download" id="download-google-sheet" href="https://docs.google.com/spreadsheets/d/1u8NiibBqrxEmq9dUB7R7kJMqNVE5lYOYV2bhLb8tRYc/export?format=xlsx" target="_blank" rel="noopener noreferrer">↓ Download workbook (.xlsx)</a><p class="google-download-note">Downloads the full workbook, including its tabs and formatting. Google may ask you to sign in.</p><div class="google-setup-help">If you want a private sheet, set its Google Sheets general access to <strong>Restricted</strong>.</div><button class="button button-secondary google-save" type="submit">Save sheet link</button></form><div id="google-login-error" class="form-error hidden" role="alert"></div><div class="dialog-actions google-actions"><button type="button" class="button button-secondary" id="google-cancel">Cancel</button><button type="button" class="button button-primary" id="google-sign-in">Sign in with another account</button></div></div></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=stocknestio-calculated-fields-v5"></script>
+  <script src="app.js?v=stocknestio-android-v1"></script>
 </body>
 </html>

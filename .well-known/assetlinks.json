@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.themidastouche.stocknestio",
+      "sha256_cert_fingerprints": [
+        "63:A5:C6:74:3B:2E:65:08:D3:90:61:FE:20:17:62:D4:5D:88:DB:68:81:49:60:F0:0E:B5:B8:8F:DC:26:43:65"
+      ]
+    }
+  }
+]

@@ -1,2 +1,6 @@
 /App_Data/google-oauth.php
 /App_Data/yum-box-sessions/
+/android/.gradle/
+/android/local.properties
+/android/build/
+/android/app/build/

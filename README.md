@@ -12,6 +12,10 @@ powershell -ExecutionPolicy Bypass -File .\run-app.ps1
 
 Then open [http://localhost:8765](http://localhost:8765). Keep the PowerShell window open while using the app.
 
+## Android app
+
+The `android/` folder contains an Android Trusted Web Activity for the hosted app at `https://aaravisyumbox.themidastouche.com/`. Open that folder in Android Studio to build the APK. The web manifest and Digital Asset Links file are included in the web root; see [`android/README.md`](android/README.md) for the build, installation, and hosting steps.
+
 ## Publish on PHP hosting
 
 The local PowerShell server is only for running the app on your own computer. For the hosted site, the frontend uses `api.php`; it needs PHP 7.4 or newer with the cURL extension enabled, HTTPS, and PHP write access to `App_Data`.
