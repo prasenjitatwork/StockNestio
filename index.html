@@ -4,22 +4,22 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f8f7f3">
-  <title>StockNest | Inventory Management</title>
+  <title>StockNestio | Inventory Management</title>
   <link rel="icon" href="favicon.ico" sizes="any">
   <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=stocknest-expense-dropdowns">
+  <link rel="stylesheet" href="styles.css?v=stocknestio-rebrand">
 </head>
 <body>
   <section class="login-page" id="google-login-page">
     <div class="login-card">
-      <a class="brand login-brand" href="#" aria-label="StockNest">
-        <img class="brand-mark" src="assets/stocknest-mark.png" alt="">
-        <span class="brand-copy"><strong>StockNest</strong><small>INVENTORY</small></span>
+      <a class="brand login-brand" href="#" aria-label="StockNestio">
+        <img class="brand-mark" src="assets/stocknestio-mark.png" alt="">
+        <span class="brand-copy"><strong>StockNestio</strong><small>INVENTORY</small></span>
       </a>
-      <div class="login-copy"><p class="eyebrow">YOUR PRIVATE STOCKROOM</p><h1>Welcome to <span>StockNest.</span></h1><p>Sign in with Google to manage your inventory.</p></div>
+      <div class="login-copy"><p class="eyebrow">YOUR PRIVATE STOCKROOM</p><h1>Welcome to <span>StockNestio.</span></h1><p>Sign in with Google to manage your inventory.</p></div>
       <div class="login-form" id="login-step-signin">
         <div id="login-error" class="form-error hidden" role="alert"></div>
         <button class="button button-primary login-submit" type="button" id="login-google-button"><span class="google-g login-google-g">G</span> Sign in with Google</button>
@@ -35,9 +35,9 @@
   </section>
   <div class="app-shell hidden">
     <aside class="sidebar">
-      <a class="brand" href="#" aria-label="StockNest home">
-        <img class="brand-mark" src="assets/stocknest-mark.png" alt="">
-        <span class="brand-copy"><strong>StockNest</strong><small>INVENTORY</small></span>
+      <a class="brand" href="#" aria-label="StockNestio home">
+        <img class="brand-mark" src="assets/stocknestio-mark.png" alt="">
+        <span class="brand-copy"><strong>StockNestio</strong><small>INVENTORY</small></span>
       </a>
       <div class="nav-label">WORKSPACE</div>
       <nav class="primary-nav" aria-label="Main navigation">
@@ -55,14 +55,14 @@
         <div class="profile">
           <img class="avatar avatar-image hidden" id="google-profile-picture" alt="">
           <span class="avatar" id="google-profile-initials" aria-hidden="true">SN</span>
-          <span class="profile-copy"><strong id="google-profile-name">StockNest</strong><small id="google-profile-detail">Inventory manager</small></span>
+          <span class="profile-copy"><strong id="google-profile-name">StockNestio</strong><small id="google-profile-detail">Inventory manager</small></span>
         </div>
       </div>
     </aside>
 
     <main class="main-content">
       <header class="topbar">
-        <div class="mobile-brand"><img class="brand-mark" src="assets/stocknest-mark.png" alt=""><strong>StockNest</strong></div>
+        <div class="mobile-brand"><img class="brand-mark" src="assets/stocknestio-mark.png" alt=""><strong>StockNestio</strong></div>
         <div class="breadcrumb"><span>Workspace</span><span class="breadcrumb-slash">/</span><strong id="breadcrumb-current">Overview</strong></div>
         <div class="topbar-right"><time class="today-label" id="today-label"></time><button class="button button-secondary theme-toggle" id="theme-toggle" type="button" aria-label="Switch to dark theme" title="Switch to dark theme"><span id="theme-toggle-icon" aria-hidden="true">◐</span><span id="theme-toggle-label">Dark mode</span></button><button class="button button-secondary google-top-button" id="google-top-button">↗ <span>Connect sheet</span></button><button class="button button-primary top-add" id="quick-add">＋ <span>Record purchase</span></button></div>
       </header>
@@ -202,6 +202,6 @@
   <dialog id="app-dialog" class="app-dialog"><div class="dialog-shell"><div class="dialog-heading"><div><p class="eyebrow" id="dialog-eyebrow"></p><h2 id="dialog-title"></h2></div><button class="icon-button" id="dialog-close" aria-label="Close dialog">×</button></div><form id="dialog-form"><div id="dialog-fields" class="form-grid"></div><div id="dialog-error" class="form-error hidden"></div><div class="dialog-actions"><button type="button" class="button button-secondary" id="dialog-cancel">Cancel</button><button type="submit" class="button button-primary" id="dialog-submit">Save</button></div></form></div></dialog>
   <dialog id="google-dialog" class="app-dialog google-dialog"><div class="dialog-shell"><div class="dialog-heading"><div><p class="eyebrow">PRIVATE GOOGLE CONNECTION</p><h2>Connect your sheet</h2></div><button class="icon-button" id="google-dialog-close" aria-label="Close dialog">×</button></div><p class="google-intro">Update the Google Sheet used by this stockroom.</p><div class="google-access-note"><span>ⓘ</span><span>OAuth tokens remain on the local server and are not sent to the browser. Workbook data is loaded from and saved directly to Google Sheets.</span></div><form id="google-settings-form" class="google-settings"><div class="form-field"><label for="google-sheet-id">Google Sheet link or ID</label><input id="google-sheet-id" name="sheetId" type="text" required></div><a class="button button-secondary google-download" id="download-google-sheet" href="https://docs.google.com/spreadsheets/d/1u8NiibBqrxEmq9dUB7R7kJMqNVE5lYOYV2bhLb8tRYc/export?format=xlsx" target="_blank" rel="noopener noreferrer">↓ Download workbook (.xlsx)</a><p class="google-download-note">Downloads the full workbook, including its tabs and formatting. Google may ask you to sign in.</p><div class="google-setup-help">If you want a private sheet, set its Google Sheets general access to <strong>Restricted</strong>.</div><button class="button button-secondary google-save" type="submit">Save sheet link</button></form><div id="google-login-error" class="form-error hidden" role="alert"></div><div class="dialog-actions google-actions"><button type="button" class="button button-secondary" id="google-cancel">Cancel</button><button type="button" class="button button-primary" id="google-sign-in">Sign in with another account</button></div></div></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=stocknest-simple-login"></script>
+  <script src="app.js?v=stocknestio-rebrand"></script>
 </body>
 </html>

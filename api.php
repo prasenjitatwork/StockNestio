@@ -412,7 +412,7 @@ try {
 
     respond_json(404, ['error' => ['message' => 'API route not found.']]);
 } catch (Throwable $error) {
-    error_log('StockNest API error: ' . $error->getMessage());
+    error_log('StockNestio API error: ' . $error->getMessage());
     if (($route ?? '') === 'oauth/callback') {
         if (!empty($_SESSION['oauth_popup']) && isset($config['base_url'])) {
             unset($_SESSION['oauth_popup']);

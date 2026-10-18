@@ -1,4 +1,4 @@
-# StockNest — Inventory Management
+# StockNestio — Inventory Management
 
 A small, dependency-free inventory and business snapshot app built from the supplied workbook.
 
@@ -18,7 +18,7 @@ The local PowerShell server is only for running the app on your own computer. Fo
 
 1. Upload the app files, the `assets/` logo directory, `api.php`, `oauth-callback.php`, `App_Data/google-oauth.example.php`, `App_Data/web.config`, and `App_Data/.htaccess` to the website root. Keep any hosting-provider `web.config` at the root unchanged. The access-control files inside `App_Data` protect the OAuth configuration and server-side session files.
 2. In `App_Data`, copy `google-oauth.example.php` to `google-oauth.php`. Edit the copy in the hosting file manager: enter your Google Web OAuth client secret and set `app_base_url` to the exact HTTPS origin shown in the browser address bar (no trailing slash). Never commit or share `google-oauth.php`.
-3. In Google Cloud Console, add that same origin under **Authorized JavaScript origins** and add `<your-exact-app-origin>/oauth-callback.php` under **Authorized redirect URIs**. The origin and callback must exactly match the StockNest hosting address; a different hostname, path, or an `api.php?route=...` URL causes Google's `redirect_uri_mismatch` error. Keep the localhost entries too if you also use the local app.
+3. In Google Cloud Console, add that same origin under **Authorized JavaScript origins** and add `<your-exact-app-origin>/oauth-callback.php` under **Authorized redirect URIs**. The origin and callback must exactly match the StockNestio hosting address; a different hostname, path, or an `api.php?route=...` URL causes Google's `redirect_uri_mismatch` error. Keep the localhost entries too if you also use the local app.
 4. Reload the hosted site. Sign in with Google, then enter the Google Sheet link. If sign-in fails, check that PHP cURL is enabled and that the PHP process can create/write `App_Data/yum-box-sessions`.
 
 ## Sign in and connect your Google Sheet
