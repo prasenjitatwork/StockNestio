@@ -41,11 +41,11 @@ Inventory, purchases, stock movements, payouts, and expenses are read from and w
 
 ## What’s included
 
-- Searchable inventory with low-stock and out-of-stock indicators, 10-row pagination, and interactive Excel export of all matching items. Edit inventory items, including their category, unit, supplier, and on-hand stock.
-- Add inventory items with category-specific sub-category choices or create a new sub-category.
+- Searchable inventory with low-stock and out-of-stock indicators, 10-row pagination, and interactive Excel export of all matching items. Edit inventory item details; on-hand stock is calculated from stock movement records and is not directly editable.
+- Add inventory items with category-specific sub-category choices or create a new sub-category. Opening stock is recorded in the stock movement log.
 - Stock adjustments that prevent stock from going below zero.
-- Purchase entry that updates stock, purchase totals, and movement history together. Edit purchase records and automatically reconcile stock and purchase totals.
-- Paginated purchase history with search and interactive Excel export of all matching purchases; edit purchase details from the log.
+- Purchase entry that updates stock, purchase totals, and movement history together. Edit purchase records and automatically reconcile stock and purchase totals; unit cost is calculated from total cost divided by quantity.
+- Paginated purchase history with search and interactive Excel export of all matching purchases; edit purchase details from the log while calculated values remain read-only.
 - Searchable, paginated stock movement history with editable movement records that recalculate on-hand stock.
 - Current date displayed in the app's top bar, including on mobile.
 - Google account name, email, and profile photo in the signed-in user profile.
@@ -55,4 +55,4 @@ Inventory, purchases, stock movements, payouts, and expenses are read from and w
 - Monthly Payouts Summary matching the workbook's platform credits, purchase costs, operating expenses, total expenses, net profit/loss, and margin, with CSV export.
 - Use Google Sheets' **File → Make a copy** or **Download** options to back up workbook data.
 
-Stock adjustments, new items, purchases, payouts, and expenses are written to their corresponding workbook tabs. The workbook's revenue summary includes a payout that its log marks as pending; the app calls this out in the finance view.
+Stock adjustments, new items, purchases, stock movements, payouts, and expenses are written to their corresponding workbook tabs. Inventory on-hand formulas remain intact and are calculated from the stock movement log; change stock by recording or editing a movement. The workbook's revenue summary includes a payout that its log marks as pending; the app calls this out in the finance view.

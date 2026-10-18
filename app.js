@@ -263,6 +263,8 @@
     return Number.isFinite(parsed) ? parsed : 0;
   }
 
+  const unitCostFor = (cost, quantity) => Number(quantity) > 0 ? Number(cost) / Number(quantity) : 0;
+
   function sheetDate(value) {
     if (!value) return "";
     if (typeof value === "number") return new Date(Date.UTC(1899, 11, 30) + value * 86400000).toISOString().slice(0, 10);
@@ -360,7 +362,7 @@
       packets: asNumber(row[3]),
       cost: asNumber(row[4]),
       quantity: asNumber(row[5]),
-      unitCost: asNumber(row[6]),
+      unitCost: unitCostFor(row[4], row[5]),
       expiry: String(row[7] || ""),
       vendor: String(row[8] || ""),
       company: String(row[9] || "")
@@ -504,16 +506,22 @@
       if (!previous) {
         newInventoryRows.push(item);
       } else {
-        const previousValues = [previous.name, previous.category, previous.subcategory, previous.unit, Number(previous.stock), previous.company || ""];
-        const values = [item.name, item.category, item.subcategory, item.unit, Number(item.stock), item.company || ""];
-        if (JSON.stringify(previousValues) !== JSON.stringify(values)) {
-          updates.push({ range: `'Inventory Master'!B${row}:G${row}`, values: [values] });
+        const previousCatalog = [previous.name, previous.category, previous.subcategory, previous.unit, previous.company || ""];
+        const catalog = [item.name, item.category, item.subcategory, item.unit, item.company || ""];
+        if (JSON.stringify(previousCatalog) !== JSON.stringify(catalog)) {
+          updates.push({ range: `'Inventory Master'!B${row}:E${row}`, values: [catalog.slice(0, 4)] });
+          updates.push({ range: `'Inventory Master'!G${row}`, values: [[catalog[4]]] });
         }
       }
     });
     newInventoryRows.forEach((item) => {
       const row = nextRows.inventoryNext++;
-      updates.push({ range: `'Inventory Master'!B${row}:G${row}`, values: [[item.name, item.category, item.subcategory, item.unit, Number(item.stock), item.company || ""]] });
+      updates.push({ range: `'Inventory Master'!B${row}:E${row}`, values: [[item.name, item.category, item.subcategory, item.unit]] });
+      updates.push({
+        range: `'Inventory Master'!F${row}`,
+        values: [[`=IF(B${row}="","",(SUMIFS('Stock Movement Log'!$E:$E,'Stock Movement Log'!$C:$C,TRIM(B${row}&" "&G${row}),'Stock Movement Log'!$D:$D,"Stock In*")-SUMIFS('Stock Movement Log'!$E:$E,'Stock Movement Log'!$C:$C,TRIM(B${row}&" "&G${row}),'Stock Movement Log'!$D:$D,"Stock Out*"))+IF(G${row}<>"",SUMIFS('Stock Movement Log'!$E:$E,'Stock Movement Log'!$C:$C,B${row},'Stock Movement Log'!$D:$D,"Stock In*")-SUMIFS('Stock Movement Log'!$E:$E,'Stock Movement Log'!$C:$C,B${row},'Stock Movement Log'!$D:$D,"Stock Out*"),0))`]]
+      });
+      updates.push({ range: `'Inventory Master'!G${row}`, values: [[item.company || ""]] });
       rowAssignments.push([item, row]);
     });
     const updatedPurchases = after.purchases.filter((entry) => entry._sheetRow
@@ -521,9 +529,16 @@
     [...updatedPurchases, ...newPurchases].forEach((entry) => {
       const row = entry._sheetRow || nextRows.purchasesNext++;
       if (!entry._sheetRow) rowAssignments.push([entry, row]);
-      updates.push({ range: `'Purchases & Inward Log'!B${row}:K${row}`, values: [[
-        dateSerial(entry.date), entry.category, entry.item, Number(entry.packets) || 0, Number(entry.cost), Number(entry.quantity),
-        Number(entry.unitCost), entry.expiry || "", entry.vendor || "", entry.company || ""
+      updates.push({ range: `'Purchases & Inward Log'!B${row}:G${row}`, values: [[
+        dateSerial(entry.date), entry.category, entry.item, Number(entry.packets) || 0,
+        Number(entry.cost), Number(entry.quantity)
+      ]] });
+      updates.push({
+        range: `'Purchases & Inward Log'!H${row}`,
+        values: [[`=IF(OR(ISBLANK(F${row}),G${row}=0),"",F${row}/G${row})`]]
+      });
+      updates.push({ range: `'Purchases & Inward Log'!I${row}:K${row}`, values: [[
+        entry.expiry || "", entry.vendor || "", entry.company || ""
       ]] });
     });
     const updateExistingRows = (collection, columns, valuesFor) => {
@@ -563,8 +578,12 @@
         quantity: sum.quantity + (Number(entry.quantity) || 0)
       }), { packets: 0, cost: 0, quantity: 0 });
       updates.push({
-        range: `'Purchases & Inward Log'!E${nextRows.purchaseFooterRow}:H${nextRows.purchaseFooterRow}`,
-        values: [[totals.packets, totals.cost, totals.quantity, totals.quantity ? totals.cost / totals.quantity : 0]]
+        range: `'Purchases & Inward Log'!E${nextRows.purchaseFooterRow}:G${nextRows.purchaseFooterRow}`,
+        values: [[totals.packets, totals.cost, totals.quantity]]
+      });
+      updates.push({
+        range: `'Purchases & Inward Log'!H${nextRows.purchaseFooterRow}`,
+        values: [[`=IF(OR(ISBLANK(F${nextRows.purchaseFooterRow}),G${nextRows.purchaseFooterRow}=0),"",F${nextRows.purchaseFooterRow}/G${nextRows.purchaseFooterRow})`]]
       });
     }
     if (!updates.length) return;
@@ -1089,6 +1108,8 @@
     return `<div class="form-field ${options.full ? "full" : ""}"><label for="field-${name}">${label}</label>${control}</div>`;
   };
 
+  const calculatedField = (label, id, value, help) => `<div class="form-field"><label for="${id}">${label}</label><input class="calculated-input" id="${id}" type="text" value="${escapeHtml(value)}" disabled><small class="field-help">${help}</small></div>`;
+
   function openForm({ eyebrow, title, submit, fields, initialValues = {}, onSubmit }) {
     get("dialog-eyebrow").textContent = eyebrow;
     get("dialog-title").textContent = title;
@@ -1186,7 +1207,7 @@
     if (collection === "inventory") {
       const initialValues = {
         name: entry.name, category: entry.category, subcategory: entry.subcategory, unit: entry.unit,
-        stock: entry.stock, company: entry.company
+        company: entry.company
       };
       openForm({
         eyebrow: "KITCHEN CATALOG", title: "Edit inventory item", submit: "Save changes",
@@ -1195,29 +1216,19 @@
           + field("Category", "category", "text", { required: false })
           + field("Sub-category", "subcategory", "text", { required: false })
           + field("Purchase unit", "unit", "text")
-          + field("On-hand stock", "stock", "number", { min: 0, step: "1" })
+          + calculatedField("On-hand stock (calculated)", "inventory-stock-calculated", `${number(entry.stock)} ${entry.unit}`, "Calculated from stock-in and stock-out records. Edit a stock movement to correct it.")
           + field("Brand / supplier", "company", "text", { required: false }),
         onSubmit: (values) => {
           const name = values.name.trim();
-          const stock = Number(values.stock);
           if (!name || state.inventory.some((item) => item !== entry && item.name.toLowerCase() === name.toLowerCase())) return "Enter an item name that is not already in your catalog.";
-          if (!Number.isInteger(stock) || stock < 0) return "On-hand stock must be a whole number of zero or more.";
           const oldName = entry.name;
-          const delta = stock - Number(entry.stock);
           Object.assign(entry, {
             name, category: values.category.trim(), subcategory: values.subcategory.trim(),
-            unit: values.unit.trim() || "Unit", stock, company: values.company.trim()
+            unit: values.unit.trim() || "Unit", company: values.company.trim()
           });
           if (oldName !== name) {
             state.purchases.forEach((purchase) => { if (purchase.item === oldName) purchase.item = name; });
             state.movements.forEach((movement) => { if (movement.item === oldName) movement.item = name; });
-          }
-          if (delta) {
-            state.movements.push({
-              date: today(), item: name, type: delta < 0 ? "out" : "in",
-              quantity: Math.abs(delta), staff: "Stockroom", notes: "Inventory correction"
-            });
-            movementPage = 1;
           }
           return "";
         }
@@ -1229,7 +1240,7 @@
       const itemNames = state.inventory.map((item) => item.name);
       const initialValues = {
         date: entry.date, category: entry.category, item: entry.item, packets: entry.packets,
-        cost: entry.cost, quantity: entry.quantity, unitCost: entry.unitCost,
+        cost: entry.cost, quantity: entry.quantity,
         expiry: entry.expiry, vendor: entry.vendor, company: entry.company
       };
       openForm({
@@ -1242,17 +1253,16 @@
           + field("Brand / supplier", "company", "text", { required: false })
           + field("Units received", "quantity", "number", { min: 1, step: "1" })
           + field("Number of packs", "packets", "number", { min: 0, step: "1", required: false })
-          + field("Unit cost (₹)", "unitCost", "number", { min: 0, step: "0.01" })
+          + calculatedField("Unit cost (calculated)", "purchase-unit-cost-preview", money(unitCostFor(entry.cost, entry.quantity)), "Calculated automatically from total cost ÷ quantity.")
           + field("Total cost (₹)", "cost", "number", { min: 0, step: "0.01" })
           + field("Expiry / notes", "expiry", "text", { required: false, full: true }),
         onSubmit: (values) => {
           const quantity = Number(values.quantity);
           const packets = Number(values.packets) || 0;
           const cost = Number(values.cost);
-          const unitCost = Number(values.unitCost);
           if (!Number.isInteger(quantity) || quantity <= 0 || !Number.isInteger(packets) || packets < 0
-            || !Number.isFinite(cost) || cost < 0 || !Number.isFinite(unitCost) || unitCost < 0) {
-            return "Enter whole-unit quantities and non-negative purchase costs.";
+            || !Number.isFinite(cost) || cost < 0) {
+            return "Enter whole-unit quantities and a non-negative total cost.";
           }
           const deltas = new Map();
           deltas.set(entry.item, (deltas.get(entry.item) || 0) - Number(entry.quantity));
@@ -1262,12 +1272,13 @@
           state.financials.purchases += cost - Number(entry.cost);
           Object.assign(entry, {
             date: values.date, category: values.category.trim(), item: values.item, packets,
-            cost, quantity, unitCost, expiry: values.expiry.trim(), vendor: values.vendor.trim(),
+            cost, quantity, unitCost: unitCostFor(cost, quantity), expiry: values.expiry.trim(), vendor: values.vendor.trim(),
             company: values.company.trim()
           });
           return "";
         }
       });
+      bindPurchaseUnitCostPreview();
       return;
     }
 
@@ -1370,6 +1381,21 @@
     }
   }
 
+  function bindPurchaseUnitCostPreview() {
+    const quantityInput = get("field-quantity");
+    const costInput = get("field-cost");
+    const preview = get("purchase-unit-cost-preview");
+    if (!quantityInput || !costInput || !preview) return;
+    const updatePreview = () => {
+      const quantity = Number(quantityInput.value);
+      const cost = Number(costInput.value);
+      preview.value = money(cost >= 0 ? unitCostFor(cost, quantity) : 0);
+    };
+    quantityInput.addEventListener("input", updatePreview);
+    costInput.addEventListener("input", updatePreview);
+    updatePreview();
+  }
+
   function openPurchase() {
     const items = [...state.inventory].sort((a, b) => a.name.localeCompare(b.name));
     const itemOptions = items.map((item) => [item.name, `${item.name} (${item.unit})`]);
@@ -1385,6 +1411,7 @@
         + field("Units received", "quantity", "number", { min: 1, step: "1" })
         + field("Number of packs", "packets", "number", { min: 0, step: "1", required: false })
         + field("Total cost (₹)", "cost", "number", { min: 0, step: "0.01" })
+        + calculatedField("Unit cost (calculated)", "purchase-unit-cost-preview", money(0), "Calculated automatically from total cost ÷ quantity.")
         + field("Expiry / notes", "expiry", "text", { placeholder: "Optional", required: false, full: true }),
       onSubmit: (values) => {
         const item = state.inventory.find((entry) => entry.name === values.item);
@@ -1392,7 +1419,7 @@
         const cost = Number(values.cost);
         if (!item || !Number.isInteger(quantity) || quantity <= 0 || !Number.isFinite(cost) || cost < 0) return "Enter a valid item, whole-unit quantity, and non-negative cost.";
         const date = values.date || today();
-        state.purchases.push({ date, category: item.category, item: item.name, packets: Number(values.packets) || 0, cost, quantity, unitCost: cost / quantity, expiry: values.expiry.trim(), vendor: values.vendor.trim(), company: item.company || "" });
+        state.purchases.push({ date, category: item.category, item: item.name, packets: Number(values.packets) || 0, cost, quantity, unitCost: unitCostFor(cost, quantity), expiry: values.expiry.trim(), vendor: values.vendor.trim(), company: item.company || "" });
         purchasePage = 1;
         item.stock = Number(item.stock) + quantity;
         state.financials.purchases += cost;
@@ -1400,6 +1427,7 @@
         return "";
       }
     });
+    bindPurchaseUnitCostPreview();
     get("field-date").value = today();
     get("field-date").max = today();
   }
